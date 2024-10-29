@@ -8,11 +8,13 @@ import json
 import os
 
 from datetime import datetime
-
 from .civitai_datas import GenerationData
 
 
 class SaveCivitai:
+
+    global FIRST_GEN
+
     def __init__(self):
         self.output_dir = folder_paths.get_output_directory()
         self.type = "output"
@@ -41,12 +43,26 @@ class SaveCivitai:
 
     CATEGORY = "MyTest"
 
-    def process_metadata(self, lora_stacker, efficient_loader, sampler, datas):
-        generated = GenerationData(datas, lora_stacker, efficient_loader, sampler)
+    # Retrieve metadatas from Images, to prevent model loading calculation at each batch images,
+    # datas are generated at first images, and copied to each next image.
+    # Only seeds will be retrieved, as it may be unique
+    def process_metadata(self, lora_stacker, efficient_loader, sampler, datas, batch_number):
+        global FIRST_GEN
+
+        if batch_number == 0:
+            print("Generating First Data")
+            FIRST_GEN = GenerationData(datas, lora_stacker, efficient_loader, sampler)
+            generated = FIRST_GEN
+
+        elif batch_number > 0 and FIRST_GEN:
+            print("Loading First Data")
+            generated = GenerationData(datas, lora_stacker, efficient_loader, sampler, FIRST_GEN)
 
         return generated.__str__()
 
+    # Save image with metadatas, retreived with the help of nodes names.
     def save_images(self, images, filename_prefix="ComfyUI", lora_stacker="LoRA Stacker", efficient_loader="Efficient Loader", sampler="KSampler", prompt=None, extra_pnginfo=None):
+        # Save location based on datetime, like on WEBUI
         filename_prefix = datetime.now().strftime("%Y-%m-%d/") + filename_prefix + self.prefix_append
         full_output_folder, filename, counter, subfolder, filename_prefix = folder_paths.get_save_image_path(
             filename_prefix, self.output_dir, images[0].shape[1], images[0].shape[0])
@@ -57,7 +73,7 @@ class SaveCivitai:
             metadata = PngInfo()
             if prompt is not None:
                 metadata.add_text("prompt", json.dumps(prompt))
-                metadata.add_text("parameters", self.process_metadata(lora_stacker, efficient_loader, sampler, prompt))
+                metadata.add_text("parameters", self.process_metadata(lora_stacker, efficient_loader, sampler, prompt, batch_number))
             if extra_pnginfo is not None:
                 for x in extra_pnginfo:
                     metadata.add_text(x, json.dumps(extra_pnginfo[x]))

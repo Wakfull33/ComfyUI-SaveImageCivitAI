@@ -29,7 +29,7 @@ class LoraData:
 
 
 class GenerationData:
-    def __init__(self, datas, loraNode, loaderNode, samplerNode):
+    def __init__(self, datas, loraNode, loaderNode, samplerNode, genDatas=None):
         self.preparePaths()
 
         self.loraStackerNodeID = None
@@ -38,30 +38,15 @@ class GenerationData:
         self.loraNodeName = loraNode
         self.loaderNodeName = loaderNode
         self.samplerNodeName = samplerNode
-
-        self.getNodesIds(datas)
         self.loras = []
 
-        self.getPrompts(datas)
-        self.getSettings(datas)
-        self.getModel(datas)
-        self.getVAE(datas)
-        self.getLoras(datas)
+        # If previous datas, copy datas to actual one and retrieve custom seed
+        if genDatas:
+            self.__dict__ = genDatas.__dict__.copy()
+            self.seed = datas.get(self.samplerNodeID, {}).get('inputs', {}).get('seed')
 
-        self.tiHashes = []
-
-        def __init__(self, datas, loraNode, loaderNode, samplerNode):
-            self.preparePaths()
-
-            self.loraStackerNodeID = None
-            self.efficientLoaderNodeID = None
-            self.samplerNodeID = None
-            self.loraNodeName = loraNode
-            self.loaderNodeName = loaderNode
-            self.samplerNodeName = samplerNode
-
+        else:
             self.getNodesIds(datas)
-            self.loras = []
 
             self.getPrompts(datas)
             self.getSettings(datas)
@@ -69,7 +54,8 @@ class GenerationData:
             self.getVAE(datas)
             self.getLoras(datas)
 
-            self.tiHashes = []
+        self.tiHashes = []
+
 
     def getPrompts(self, datas):
         self.positivePrompt = datas.get(self.efficientLoaderNodeID, {}).get('inputs', {}).get('positive')
@@ -196,7 +182,6 @@ class GenerationData:
                 self.efficientLoaderNodeID = node
             if self.samplerNodeName in datas.get(node, {}).get('class_type', {}):
                 self.samplerNodeID = node
-
 
     def __str__(self):
         has_loras = len(self.loras) > 0
